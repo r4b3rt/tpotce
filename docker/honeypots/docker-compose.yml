@@ -22,6 +22,7 @@ services:
      - "23:23"
      - "25:25"
      - "53:53/udp"
+     - "67:67/udp"
      - "80:80"
      - "110:110"
      - "123:123"
@@ -46,7 +47,7 @@ services:
      - "9100:9100"
      - "9200:9200"
      - "11211:11211"
-    image: "dtagdevsec/honeypots:24.04"
+    image: "dtagdevsec/honeypots:24.04.1"
     read_only: true
     volumes:
      - $HOME/tpotce/data/honeypots/log:/var/log/honeypots

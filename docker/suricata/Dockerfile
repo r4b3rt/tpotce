@@ -1,10 +1,11 @@
-FROM alpine:edge
+FROM alpine:3.24
 #
 # Include dist
 COPY dist/ /root/dist/
 #
 # Install packages
-RUN apk -U --no-cache add \
+RUN apk --no-cache -U upgrade && \
+    apk --no-cache -U add \
 		ca-certificates \
 		curl \
 		file \
@@ -19,10 +20,10 @@ RUN apk -U --no-cache add \
     cp /root/dist/*.yaml /etc/suricata/ && \
     cp /root/dist/*.conf /etc/suricata/ && \
     cp /root/dist/*.bpf /etc/suricata/ && \
-    cp /root/dist/update.sh /usr/bin/ && \
+    cp /root/dist/entrypoint.sh /usr/bin/ && \
     chmod 644 /etc/suricata/*.config && \
     chmod 755 -R /var/lib/suricata && \
-    chmod 755 /usr/bin/update.sh && \
+    chmod 755 /usr/bin/entrypoint.sh && \
     chown -R root:suri /tmp /run && \
 #
 # Download the latest EmergingThreats OPEN ruleset
@@ -30,10 +31,10 @@ RUN apk -U --no-cache add \
     suricata-update --no-test --no-reload && \
 #
 # Clean up
-    rm -rf /root/* && \
-    rm -rf /tmp/* && \
-    rm -rf /var/cache/apk/*
+    rm -rf /root/* \
+           /tmp/* \
+           /var/cache/apk/*
 #
 # Start suricata
 STOPSIGNAL SIGINT
-CMD SURICATA_CAPTURE_FILTER=$(update.sh $OINKCODE) && exec suricata -v -F $SURICATA_CAPTURE_FILTER -i $(/sbin/ip address show | /usr/bin/awk '/inet.*brd/{ print $NF; exit }')
+ENTRYPOINT ["entrypoint.sh"]

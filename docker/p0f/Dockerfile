@@ -1,12 +1,11 @@
-# In case of problems Alpine 3.13 needs to be used:
-# https://wiki.alpinelinux.org/wiki/Release_Notes_for_Alpine_3.14.0#faccessat2
-FROM alpine:3.19
+FROM alpine:3.23
 #
 # Add source
 COPY . /opt/p0f
 #
 # Install packages
-RUN apk -U --no-cache add \
+RUN apk --no-cache -U upgrade && \
+    apk --no-cache -U add \
 		bash \
 		build-base \
 		jansson \
@@ -28,10 +27,10 @@ RUN apk -U --no-cache add \
     apk del --purge build-base \
                     jansson-dev \
                     libpcap-dev && \
-    rm -rf /root/* && \
-    rm -rf /var/cache/apk/*
+    rm -rf /root/* \
+           /var/cache/apk/*
 #
 # Start p0f
 WORKDIR /opt/p0f
 USER p0f:p0f
-CMD exec /opt/p0f/p0f -u p0f -j -o /var/log/p0f/p0f.json -i $(/sbin/ip address show | /usr/bin/awk '/inet.*brd/{ print $NF; exit }') > /dev/null
+CMD ["/bin/bash", "-c", "exec /opt/p0f/p0f -u p0f -j -o /var/log/p0f/p0f.json -i $(ip route | grep \"^default\" | awk '{ print $5 }') > /dev/null"]

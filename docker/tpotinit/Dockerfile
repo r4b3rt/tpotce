@@ -1,10 +1,11 @@
-FROM alpine:edge
+FROM alpine:3.23
 #
 # Include dist
 COPY dist/ /opt/tpot/
 #
-# Get and install dependencies & packages
-RUN apk --no-cache -U add \
+# Install packages
+RUN apk --no-cache -U upgrade && \
+    apk --no-cache -U add \
         aria2 \
         apache2-utils \
         bash \
@@ -12,33 +13,35 @@ RUN apk --no-cache -U add \
         conntrack-tools \
 		cracklib \
         curl \
+        envsubst \
         ethtool \
         figlet \
         git \
         grep \
         iproute2 \
         iptables \
-#        iptables-legacy \
         jq \
         logrotate \
         lsblk \
         net-tools \
+        nftables \
         openssl \
         pigz \
         tar \
-        uuidgen && \
-    apk --no-cache -U add --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community \
-        yq && \
+        uuidgen \
+        yq-go && \
 #
-# Setup user
+# Setup user, logrotate permissions
     addgroup -g 2000 tpot && \
     adduser -S -s /bin/ash -u 2000 -D -g 2000 tpot && \
+    chmod 0600 /opt/tpot/etc/logrotate/logrotate.* && \
 #
 # Clean up
     apk del --purge git && \
-    rm -rf /root/* /tmp/* && \
-    rm -rf /root/.cache /opt/tpot/.git && \
-    rm -rf /var/cache/apk/*
+    rm -rf /root/* /tmp/* \
+           /root/.cache \
+           /opt/tpot/.git \
+           /var/cache/apk/*
 #
 # Run tpotinit
 WORKDIR /opt/tpot

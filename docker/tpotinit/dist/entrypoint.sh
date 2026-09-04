@@ -114,6 +114,20 @@ validate_ip_or_domain() {
     fi
 }
 
+# Function to validate if TPOT_PERSISTENCE_CYCLES is set and valid
+validate_tpot_persistence_cycles() {
+  # Check if the variable is unset, empty, not a number, or out of the valid range (1–999)
+  if [[ -z "$TPOT_PERSISTENCE_CYCLES" ]] || 
+     [[ ! "$TPOT_PERSISTENCE_CYCLES" =~ ^[0-9]+$ ]] || 
+     (( TPOT_PERSISTENCE_CYCLES < 1 )) || 
+     (( TPOT_PERSISTENCE_CYCLES > 999 )); then
+
+    # Set to default value
+    echo "WARNING! TPOT_PERSISTENCE_CYCLES is not set, invalid or out of bounds. Using default of 30 cycles."
+    TPOT_PERSISTENCE_CYCLES=30
+  fi
+}
+
 create_web_users() {
     echo
     echo "# Creating passwd files based on T-Pot .env config ..."
@@ -203,6 +217,9 @@ for var in TPOT_BLACKHOLE TPOT_PERSISTENCE TPOT_ATTACKMAP_TEXT TPOT_ATTACKMAP_TE
     validate_format "$var"
 done
 
+# Validate TPOT_PERSISTENCE_CYCLES
+validate_tpot_persistence_cycles
+
 if [ "${TPOT_TYPE}" == "HIVE" ];
   then
     # No $ for check_var
@@ -242,11 +259,12 @@ if [ -f "/data/uuid" ];
     echo
     echo "# Data folder is present, just cleaning up, please be patient ..."
     echo
-    /opt/tpot/bin/clean.sh "${TPOT_PERSISTENCE}"
+    /opt/tpot/bin/clean.sh "${TPOT_PERSISTENCE}" "${TPOT_PERSISTENCE_CYCLES}"
     echo
   else
     figlet "Setting up ..."
     figlet "T-Pot: ${TPOT_VERSION}"
+    myFIRSTRUN="true"
     echo
     echo "# Setting up data folder structure ..."
     echo
@@ -268,9 +286,8 @@ if [ -f "/data/uuid" ];
     echo
     create_web_users
     echo
-    echo "# Extracting objects, final touches and permissions ..."
+    echo "# Final touches and permissions ..."
     echo
-    tar xvfz /opt/tpot/etc/objects/elkbase.tgz -C /
     uuidgen > /data/uuid
 fi
 
@@ -352,6 +369,26 @@ figlet "Starting ..."
 figlet "T-Pot: ${TPOT_VERSION}"
 echo
 touch /tmp/success
+
+# We need to push objects to Kibana if this is a Hive and a fresh install
+if [ "${myFIRSTRUN}" == "true" ] && [ "${TPOT_TYPE}" == "HIVE" ];
+  then
+    myKIBANA_URL="http://127.0.0.1:64296"
+    myKIBANA_CONFIG="/opt/tpot/etc/objects/export.ndjson"
+
+    # Wait for Kibana to be available
+    until curl -s -f -o /dev/null "{$myKIBANA_URL}/api/status"; do
+      echo "# Waiting for Kibana to upload config..."
+      sleep 2
+    done
+
+    # Upload Kibana config
+    echo "# Now uploading config to Kibana."
+    curl -X POST "http://127.0.0.1:64296/api/saved_objects/_import?overwrite=true" \
+      -H "kbn-xsrf: true" \
+      --form file=@/opt/tpot/etc/objects/kibana_export.ndjson
+    echo "# Kibana config has been uploaded."
+fi
 
 # We want to see true source for UDP packets in container (https://github.com/moby/libnetwork/issues/1994)
 # Start autoheal if running on a supported os

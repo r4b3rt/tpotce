@@ -1,13 +1,15 @@
-FROM alpine:3.19
+FROM alpine:3.23
 #
 # Install packages
-RUN apk -U --no-cache add \
+RUN apk --no-cache -U upgrade && \
+    apk --no-cache -U add \
 		build-base \
 		file \
 		git \
 		make \
 		php83 \
 		php83-dev \
+		php83-tokenizer \
 		py3-aiohttp \
 		python3 \
 		python3-dev \
@@ -16,7 +18,6 @@ RUN apk -U --no-cache add \
 # Install bfr sandbox from git
     git clone https://github.com/mushorg/BFR -b v1.0.0 /opt/BFR && \
     cd /opt/BFR && \
-#    git checkout 91a8a4e155875c50b69d5c6af454e304994815a7 && \
     phpize83 && \
     ./configure \
       --with-php-config=/usr/bin/php-config83 \
@@ -30,8 +31,12 @@ RUN apk -U --no-cache add \
 # Install PHP Sandbox
     git clone https://github.com/mushorg/phpox /opt/phpox && \
     cd /opt/phpox && \
-    #git checkout a62c8136ec7b3ebab0c989f4235e2960175121f8 && \
+    git checkout 55a6cbdc2c62f08eb45acffaf84f23f06a1d4703 && \
     make && \
+    sed -i \
+      -e 's/"php8.1"/"php83"/g' \
+      -e "s/host='127.0.0.1'/host='0.0.0.0'/" \
+      sandbox.py && \
 #
 # Clean up
     apk del --purge build-base \

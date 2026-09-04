@@ -1,11 +1,12 @@
-FROM alpine:3.19
+FROM alpine:3.23
 #
 # Include dist
 COPY dist/ /root/dist/
 #
-# Setup apt
-RUN apk --no-cache -U add \
-			build-base \
+# Install packages
+RUN apk --no-cache -U upgrade && \
+    apk --no-cache -U add \
+            build-base \
 			cython \
 			file \
 			git \
@@ -43,14 +44,9 @@ RUN apk --no-cache -U add \
 			wget && \
 #
 # Setup ConPot
-    git clone https://github.com/t3chn0m4g3/cpppo /opt/cpppo && \
-    cd /opt/cpppo && \
-    pip3 install --break-system-packages --no-cache-dir --upgrade pip && \
-    pip3 install --break-system-packages --no-cache-dir . && \
     git clone https://github.com/mushorg/conpot /opt/conpot && \
     cd /opt/conpot/ && \
-	git checkout 26c67d11b08a855a28e87abd186d959741f46c7f && \
-    # git checkout b3740505fd26d82473c0d7be405b372fa0f82575 && \
+	git checkout 31b1f7d273ee4f8c121eb59dcfce4ec2cb35e612 && \
     # Change template default ports if <1024
     sed -i 's/port="2121"/port="21"/' /opt/conpot/conpot/templates/default/ftp/ftp.xml && \
     sed -i 's/port="8800"/port="80"/' /opt/conpot/conpot/templates/default/http/http.xml && \
@@ -69,7 +65,7 @@ RUN apk --no-cache -U add \
 #
 # Get wireshark manuf db for scapy, setup configs, user, groups
     mkdir -p /etc/conpot /var/log/conpot /usr/share/wireshark && \
-    wget https://www.wireshark.org/download/automated/data/manuf -o /usr/share/wireshark/manuf && \
+    wget https://www.wireshark.org/download/automated/data/manuf -O /usr/share/wireshark/manuf && \
     cp /root/dist/conpot.cfg /etc/conpot/conpot.cfg && \
     cp -R /root/dist/templates /usr/lib/$(readlink -f $(type -P python3) | cut -f4 -d"/")/site-packages/conpot/ && \
     cp /root/dist/cpu_check.py / && \
@@ -86,15 +82,18 @@ RUN apk --no-cache -U add \
             libxslt-dev \
             mariadb-dev \
             pkgconfig \
+            py3-pip \
             python3-dev \
             wget && \
-    rm -rf /root/* && \
-    rm -rf /tmp/* && \
-    rm -rf /var/cache/apk/*
+    rm -rf /root/* \
+           /tmp/* \
+           /var/cache/apk/* \
+           /opt/cpppo/.git \
+           /opt/conpot/.git
 #
 # Start conpot
 STOPSIGNAL SIGINT
 # Conpot sometimes hangs at 100% CPU usage, if detected container will become unhealthy and restarted by tpotinit
 HEALTHCHECK --interval=5m --timeout=30s --retries=3 CMD python3 /cpu_check.py $(pgrep -of conpot) 99
 USER conpot:conpot
-CMD exec /usr/bin/conpot --mibcache $CONPOT_TMP --temp_dir $CONPOT_TMP --template $CONPOT_TEMPLATE --logfile $CONPOT_LOG --config $CONPOT_CONFIG
+CMD ["/bin/sh", "-c", "exec /usr/bin/conpot --mibcache \"$CONPOT_TMP\" --temp_dir \"$CONPOT_TMP\" --template \"$CONPOT_TEMPLATE\" --logfile \"$CONPOT_LOG\" --config \"$CONPOT_CONFIG\""]

@@ -1,10 +1,11 @@
-FROM alpine:3.17
+FROM alpine:3.23
 #
 # Include dist
 COPY dist/ /root/dist/
 #
-# Setup apt
-RUN apk -U --no-cache add \
+# Install packages
+RUN apk --no-cache -U upgrade && \
+    apk --no-cache -U add \
 		build-base \
 		git \
 		libcap \
@@ -31,13 +32,16 @@ RUN apk -U --no-cache add \
 		python3-dev && \ 
 #
 # Setup Tanner
-#    git clone https://github.com/t3chn0m4g3/tanner /opt/tanner && \
 	git clone https://github.com/mushorg/tanner /opt/tanner && \
     cd /opt/tanner/ && \
-    git checkout 245d628f4023e5462c7035e760a6b5eed0a33fbe && \
+    # git checkout 245d628f4023e5462c7035e760a6b5eed0a33fbe && \
+    git checkout 3bc9ae2831db2d7e9c3aa3fb98b3b3a6fc73b18c && \
     cp /root/dist/config.yaml /opt/tanner/tanner/data && \
     cp /root/dist/requirements.txt . && \
-    pip3 install --no-cache-dir -r requirements.txt && \
+    pip3 install --break-system-packages --no-cache-dir cython && \
+    pip3 install --break-system-packages --no-cache-dir --no-build-isolation pylibinjection && \
+    pip3 install --break-system-packages --no-cache-dir -r requirements.txt && \
+    sed -i 's/class TimeoutError(asyncio.TimeoutError, builtins.TimeoutError, RedisError):/class TimeoutError(asyncio.TimeoutError, RedisError):/' /usr/lib/python*/site-packages/aioredis/exceptions.py && \
     python3 setup.py install && \
     rm -rf .coveragerc \
            .git \
@@ -64,14 +68,17 @@ RUN apk -U --no-cache add \
             git \
             libcap \
             libffi-dev \
-#            libressl-dev \
+            openssl-dev \
             linux-headers \
             python3-dev && \
-    rm -rf /root/* && \
-    rm -rf /tmp/* /var/tmp/* /var/cache/apk/* /opt/tanner/.git
+    rm -rf /root/* \
+           /tmp/* \
+           /var/tmp/* \
+           /var/cache/apk/* \
+           /opt/tanner/.git
 #
 # Start tanner
 STOPSIGNAL SIGKILL
 USER tanner:tanner
 WORKDIR /opt/tanner
-CMD tanner 
+CMD ["tanner"]
